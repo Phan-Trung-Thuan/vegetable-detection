@@ -16,6 +16,7 @@ __all__ = (
     "Conv",
     "Conv2",
     "ConvTranspose",
+    "DSConv",
     "DWConv",
     "DWConvTranspose2d",
     "Focus",
@@ -24,7 +25,6 @@ __all__ = (
     "LightConv",
     "RepConv",
     "SpatialAttention",
-    "DSConv",
 )
 
 
@@ -546,9 +546,10 @@ class ChannelAttention(nn.Module):
         """
         return x * self.act(self.fc(self.pool(x)))
 
+
 class CBAM(nn.Module):
     def __init__(self, channels, reduction=16):
-        super(CBAM, self).__init__()
+        super().__init__()
         self.channel_attention = ChannelAttention(channels, reduction)
         self.spatial_attention = SpatialAttention()
 
@@ -556,16 +557,17 @@ class CBAM(nn.Module):
         x = self.channel_attention(x) * x
         x = self.spatial_attention(x) * x
         return x
-    
+
+
 class ChannelAttention(nn.Module):
     def __init__(self, in_planes, reduction=16):
-        super(ChannelAttention, self).__init__()
+        super().__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.max_pool = nn.AdaptiveMaxPool2d(1)
         self.fc = nn.Sequential(
             nn.Conv2d(in_planes, in_planes // reduction, 1, bias=False),
             nn.ReLU(),
-            nn.Conv2d(in_planes // reduction, in_planes, 1, bias=False)
+            nn.Conv2d(in_planes // reduction, in_planes, 1, bias=False),
         )
         self.sigmoid = nn.Sigmoid()
 
@@ -575,9 +577,10 @@ class ChannelAttention(nn.Module):
         out = avg_out + max_out
         return self.sigmoid(out)
 
+
 class SpatialAttention(nn.Module):
     def __init__(self):
-        super(SpatialAttention, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(2, 1, kernel_size=7, padding=3, bias=False)
         self.sigmoid = nn.Sigmoid()
 
@@ -587,17 +590,16 @@ class SpatialAttention(nn.Module):
         x = torch.cat([avg_out, max_out], dim=1)
         x = self.conv1(x)
         return self.sigmoid(x)
-    
+
+
 class DSConv(nn.Module):
     """The Basic Depthwise Separable Convolution."""
+
     def __init__(self, c_in, c_out, k=3, s=1, p=None, d=1, bias=False):
         super().__init__()
         if p is None:
             p = (d * (k - 1)) // 2
-        self.dw = nn.Conv2d(
-            c_in, c_in, kernel_size=k, stride=s,
-            padding=p, dilation=d, groups=c_in, bias=bias
-        )
+        self.dw = nn.Conv2d(c_in, c_in, kernel_size=k, stride=s, padding=p, dilation=d, groups=c_in, bias=bias)
         self.pw = nn.Conv2d(c_in, c_out, 1, 1, 0, bias=bias)
         self.bn = nn.BatchNorm2d(c_out)
         self.act = nn.SiLU()
@@ -606,6 +608,7 @@ class DSConv(nn.Module):
         x = self.dw(x)
         x = self.pw(x)
         return self.act(self.bn(x))
+
 
 class Concat(nn.Module):
     """Concatenate a list of tensors along specified dimension.
