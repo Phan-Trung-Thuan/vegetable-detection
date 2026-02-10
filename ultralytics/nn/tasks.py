@@ -13,12 +13,12 @@ import torch.nn as nn
 from ultralytics.nn.autobackend import check_class_names
 from ultralytics.nn.modules import (
     AIFI,
-    CBAM,
     C1,
     C2,
     C2PSA,
     C3,
     C3TR,
+    CBAM,
     ELAN1,
     OBB,
     OBB26,
@@ -46,13 +46,18 @@ from ultralytics.nn.modules import (
     Conv2,
     ConvTranspose,
     Detect,
+    DownsampleConv,
+    DSC3k2,
+    DSConv,
     DWConv,
     DWConvTranspose2d,
     Focus,
+    FullPAD_Tunnel,
     GhostBottleneck,
     GhostConv,
     HGBlock,
     HGStem,
+    HyperACE,
     ImagePoolingAttn,
     Index,
     LRPCHead,
@@ -73,11 +78,6 @@ from ultralytics.nn.modules import (
     YOLOESegment,
     YOLOESegment26,
     v10Detect,
-    DSConv,
-    DSC3k2,
-    DownsampleConv,
-    FullPAD_Tunnel,
-    HyperACE,
 )
 from ultralytics.utils import DEFAULT_CFG_DICT, LOGGER, YAML, colorstr, emojis
 from ultralytics.utils.checks import check_requirements, check_suffix, check_yaml
@@ -1727,7 +1727,7 @@ def parse_model(d, ch, verbose=True):
             c1 = ch[f[1]]
             c2 = args[0]
             c2 = make_divisible(min(c2, max_channels) * width, 8)
-            he = args[1] 
+            he = args[1]
             if scale in "n":
                 he = int(args[1] * 0.5)
             elif scale in "x":
@@ -1742,7 +1742,7 @@ def parse_model(d, ch, verbose=True):
             args = [c1]
             if scale in "lx":  # for L/X sizes
                 args.append(False)
-                c2 =c1
+                c2 = c1
         elif m is FullPAD_Tunnel:
             c2 = ch[f[0]]
         else:
