@@ -25,7 +25,7 @@ if __name__ == '__main__':
     model = YOLO("yolov10n.yaml").load("yolov10n.pt") 
 
     # Set dataset yaml path here
-    dataset_path = "VnVeggie/data.yaml" 
+    dataset_path = "/kaggle/input/vnveggie/data.yaml" 
 
     # Train the model (Config workers according to CPU/GPU capability/can cause crashes if set too high)
     # Link params: https://docs.ultralytics.com/modes/train/
