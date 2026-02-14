@@ -12,6 +12,9 @@ Pip install:
 8. pip install thop
 """
 
+import sys
+sys.path.append("/kaggle/working/vegetable-detection")
+
 from ultralytics import YOLO
 import torch
 
