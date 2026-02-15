@@ -32,4 +32,4 @@ if __name__ == '__main__':
 
     # Train the model (Config workers according to CPU/GPU capability/can cause crashes if set too high)
     # Link params: https://docs.ultralytics.com/modes/train/
-    model.train(data=dataset_path, epochs=200, lr0=0.01, momentum=0.9, patience=40, optimizer="SGD", imgsz=640, batch=32, workers=4 , name="yolov10n_vnveggie", amp=False)
+    model.train(data=dataset_path, epochs=200, lr0=0.01, momentum=0.9, patience=40, optimizer="AdamW", imgsz=640, batch=64, workers=4 , name="yolov10n_vnveggie", amp=False, device=[0, 1])
