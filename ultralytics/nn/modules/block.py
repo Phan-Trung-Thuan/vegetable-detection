@@ -26,6 +26,7 @@ __all__ = (
     "SPP",
     "SPPELAN",
     "SPPF",
+    "SPPFCA",
     "AConv",
     "ADown",
     "Attention",
@@ -840,6 +841,25 @@ class SPPF(nn.Module):
         """Apply sequential pooling operations to input and return concatenated feature maps."""
         y = [self.cv1(x)]
         y.extend(self.m(y[-1]) for _ in range(getattr(self, "n", 3)))
+        y = self.cv2(torch.cat(y, 1))
+        return y + x if getattr(self, "add", False) else y
+
+
+class SPPFCA(nn.Module):
+    def __init__(self, c1: int, c2: int, k: int = 5, n: int = 3, shortcut: bool = False):
+        super().__init__()
+        c_ = c1 // 2  # hidden channels
+        self.cv1 = Conv(c1, c_, 1, 1, act=False)
+        self.cv2 = Conv(c_ * (n + 1), c2, 1, 1)
+        self.m = nn.MaxPool2d(kernel_size=k, stride=1, padding=k // 2)
+        self.cas = nn.ModuleList(CoordinateAttention(c_, c_) for _ in range(n))
+        self.n = n
+        self.add = shortcut and c1 == c2
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply sequential pooling operations to input and return concatenated feature maps."""
+        y = [self.cv1(x)]
+        y.extend(self.cas[i](self.m(y[-1])) for i in range(getattr(self, "n", 3)))
         y = self.cv2(torch.cat(y, 1))
         return y + x if getattr(self, "add", False) else y
 

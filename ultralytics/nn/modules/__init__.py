@@ -133,6 +133,7 @@ __all__ = (
     "SPP",
     "SPPELAN",
     "SPPF",
+    "SPPFCA",
     "A2C2f",
     "AConv",
     "ADown",
