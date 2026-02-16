@@ -10,7 +10,7 @@ import math
 
 from ultralytics.utils.torch_utils import fuse_conv_and_bn
 
-from .conv import Conv, DSConv, DWConv, GhostConv, LightConv, RepConv, autopad
+from .conv import Conv, DSConv, DWConv, GhostConv, GhostConvMS, LightConv, RepConv, ECALayer, autopad
 from .transformer import TransformerBlock
 
 __all__ = (
@@ -970,6 +970,13 @@ class C3Ghost(C3):
         self.m = nn.Sequential(*(GhostBottleneck(c_, c_) for _ in range(n)))
 
 
+class C3GhostV2(C3):
+    def __init__(self, c1: int, c2: int, n: int = 1, shortcut: bool = True, g: int = 1, e: float = 0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        c_ = int(c2 * e)  # hidden channels
+        self.m = nn.Sequential(*(GhostBottleneckV2(c_, c_) for _ in range(n)))
+
+
 class GhostBottleneck(nn.Module):
     """Ghost Bottleneck https://github.com/huawei-noah/Efficient-AI-Backbones."""
 
@@ -996,6 +1003,35 @@ class GhostBottleneck(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Apply skip connection and concatenation to input tensor."""
         return self.conv(x) + self.shortcut(x)
+    
+
+class GhostBottleneckV2(nn.Module):
+    def __init__(self, c1, c2, k=3, s=1):
+        super().__init__()
+        c_ = c2 // 2
+
+        self.ghost1 = GhostConvMS(c1, c_, 1, 1)
+        self.dw = DWConv(c_, c_, k, s, act=False) if s == 2 else nn.Identity()
+        self.ghost2 = GhostConvMS(c_, c2, 1, 1, act=False)
+
+        self.attn = ECALayer(c2)  # lightweight attention
+        self.scale = nn.Parameter(torch.ones(1))
+
+        self.shortcut = (
+            nn.Sequential(
+                DWConv(c1, c1, k, s, act=False),
+                Conv(c1, c2, 1, 1, act=False),
+            ) if s == 2 else nn.Identity()
+        )
+
+    def forward(self, x):
+        out = self.ghost1(x)
+        out = self.dw(out)
+        out = self.ghost2(out)
+
+        out = self.attn(out)
+
+        return self.scale * out + self.shortcut(x)
 
 
 class Bottleneck(nn.Module):

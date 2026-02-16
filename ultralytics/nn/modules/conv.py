@@ -20,6 +20,7 @@ __all__ = (
     "DWConvTranspose2d",
     "Focus",
     "GhostConv",
+    "GhostConvMS",
     "Index",
     "LightConv",
     "RepConv",
@@ -350,6 +351,39 @@ class GhostConv(nn.Module):
         y = self.cv1(x)
         return torch.cat((y, self.cv2(y)), 1)
 
+
+class ECALayer(nn.Module):
+    def __init__(self, k_size=3):
+        super().__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.conv = nn.Conv1d(1, 1, k_size, padding=(k_size-1)//2, bias=False)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        y = self.avg_pool(x)
+        y = self.conv(y.squeeze(-1).transpose(-1, -2))
+        y = self.sigmoid(y).transpose(-1, -2).unsqueeze(-1)
+        return x * y.expand_as(x)
+    
+
+class GhostConvMS(nn.Module):
+
+    def __init__(self, c1, c2, k=1, s=1, g=1, act=True):
+        super().__init__()
+        c_ = c2 // 2
+
+        self.cv1 = Conv(c1, c_, k, s, None, g, act=act)
+
+        self.dw3 = Conv(c_, c_ // 2, 3, 1, None, c_, act=act)
+        self.dw5 = Conv(c_, c_ // 2, 5, 1, None, c_, act=act)
+
+        self.eca = ECALayer(k_size=3)
+
+    def forward(self, x):
+        y = self.cv1(x)
+        ghost = torch.cat((self.dw3(y), self.dw5(y)), 1)
+        return self.eca(torch.cat((y, ghost), 1))
+    
 
 class DynamicGhostConv(nn.Module):
     def __init__(self, c1, c2, k=1, s=1, K=4, reduction=4):
