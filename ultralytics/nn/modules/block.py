@@ -1116,23 +1116,41 @@ class C3GhostV2(C3):
 
 
 class GhostC2f(nn.Module):
-    def __init__(self, c1, c2, n=2, e=0.5):
+    """Ghost version of C2f (CSP-style block with Ghost modules)."""
+
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        n: int = 1,
+        shortcut: bool = False,
+        e: float = 0.5,
+    ):
+        """
+        Args:
+            c1 (int): input channels
+            c2 (int): output channels
+            n (int): number of GhostBottleneck blocks
+            shortcut (bool): use shortcut inside bottleneck
+            e (float): expansion ratio
+        """
         super().__init__()
-        c_ = int(c2 * e)
 
-        self.cv1 = GhostConv(c1, 2 * c_, 1, 1)
+        self.c = int(c2 * e)  # hidden channels
+
+        # Replace Conv with GhostConv
+        self.cv1 = GhostConv(c1, 2 * self.c, 1, 1)
+        self.cv2 = GhostConv((2 + n) * self.c, c2, 1, 1)
+
         self.m = nn.ModuleList(
-            GhostBottleneck(c_, c_) for _ in range(n)
+            GhostBottleneck(self.c, self.c, k=3, s=1)
+            for _ in range(n)
         )
-        self.cv2 = GhostConv((2 + n) * c_, c2, 1)
 
-        self.eca = ECA(c2)
-
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         y = list(self.cv1(x).chunk(2, 1))
-        for m in self.m:
-            y.append(m(y[-1]))
-        return self.eca(self.cv2(torch.cat(y, 1)))
+        y.extend(m(y[-1]) for m in self.m)
+        return self.cv2(torch.cat(y, 1))
     
 
 class GhostBottleneck(nn.Module):
