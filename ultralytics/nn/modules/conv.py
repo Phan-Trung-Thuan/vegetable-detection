@@ -354,7 +354,7 @@ class GhostConv(nn.Module):
 
 
 class SpectralECA(nn.Module):
-    def __init__(self, channels, k_size=3):
+    def __init__(self, k_size=3):
         super().__init__()
 
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
