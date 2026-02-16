@@ -10,7 +10,7 @@ import math
 
 from ultralytics.utils.torch_utils import fuse_conv_and_bn
 
-from .conv import Conv, DSConv, DWConv, GhostConv, GhostConvMS, LightConv, RepConv, ECALayer, autopad
+from .conv import Conv, DSConv, DWConv, GhostConv, GhostConvSR, SpectralECA, LightConv, RepConv, autopad
 from .transformer import TransformerBlock
 
 __all__ = (
@@ -37,6 +37,7 @@ __all__ = (
     "C2fCIB",
     "C2fPSA",
     "C3Ghost",
+    "C3GhostV2",
     "C3k2",
     "C3x",
     "CBFuse",
@@ -1010,11 +1011,11 @@ class GhostBottleneckV2(nn.Module):
         super().__init__()
         c_ = c2 // 2
 
-        self.ghost1 = GhostConvMS(c1, c_, 1, 1)
+        self.ghost1 = GhostConvSR(c1, c_, 1, 1)
         self.dw = DWConv(c_, c_, k, s, act=False) if s == 2 else nn.Identity()
-        self.ghost2 = GhostConvMS(c_, c2, 1, 1, act=False)
+        self.ghost2 = GhostConvSR(c_, c2, 1, 1, act=False)
 
-        self.attn = ECALayer(c2)  # lightweight attention
+        self.attn = SpectralECA(c2)  # lightweight attention
         self.scale = nn.Parameter(torch.ones(1))
 
         self.shortcut = (
