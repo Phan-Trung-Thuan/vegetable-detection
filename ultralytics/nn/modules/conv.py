@@ -351,6 +351,143 @@ class GhostConv(nn.Module):
         return torch.cat((y, self.cv2(y)), 1)
 
 
+class DynamicGhostConv(nn.Module):
+    def __init__(self, c1, c2, k=1, s=1, K=4, reduction=4):
+        super().__init__()
+        self.K = K
+        c_ = c2 // 2
+        
+        # K intrinsic convs
+        self.convs = nn.ModuleList([
+            nn.Conv2d(c1, c_, k, s, k//2, bias=False)
+            for _ in range(K)
+        ])
+        
+        # Attention to weight kernels
+        self.attention = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(c1, c1 // reduction, 1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(c1 // reduction, K, 1),
+            nn.Softmax(dim=1)
+        )
+        
+        self.cheap = nn.Conv2d(c_, c_, 3, 1, 1, groups=c_, bias=False)
+        
+    def forward(self, x):
+        B = x.size(0)
+        attn = self.attention(x).view(B, self.K)
+        
+        out = 0
+        for i in range(self.K):
+            out = out + self.convs[i](x) * attn[:, i].view(B, 1, 1, 1)
+        
+        ghost = self.cheap(out)
+        return torch.cat([out, ghost], dim=1)
+    
+
+class CoordinateAttention(nn.Module):
+    def __init__(self, inp, reduction=32):
+        super().__init__()
+        self.pool_h = nn.AdaptiveAvgPool2d((None, 1))
+        self.pool_w = nn.AdaptiveAvgPool2d((1, None))
+        
+        mip = max(8, inp // reduction)
+        
+        self.conv1 = nn.Conv2d(inp, mip, 1)
+        self.bn1 = nn.BatchNorm2d(mip)
+        self.act = nn.ReLU()
+        
+        self.conv_h = nn.Conv2d(mip, inp, 1)
+        self.conv_w = nn.Conv2d(mip, inp, 1)
+    
+    def forward(self, x):
+        identity = x
+        n, c, h, w = x.size()
+        
+        x_h = self.pool_h(x)
+        x_w = self.pool_w(x).permute(0, 1, 3, 2)
+        
+        y = torch.cat([x_h, x_w], dim=2)
+        y = self.act(self.bn1(self.conv1(y)))
+        
+        x_h, x_w = torch.split(y, [h, w], dim=2)
+        x_w = x_w.permute(0, 1, 3, 2)
+        
+        a_h = self.conv_h(x_h).sigmoid()
+        a_w = self.conv_w(x_w).sigmoid()
+        
+        return identity * a_h * a_w
+
+
+class GhostConv_CA(nn.Module):
+    def __init__(self, c1, c2):
+        super().__init__()
+        self.ghost = DynamicGhostConv(c1, c2)
+        self.ca = CoordinateAttention(c2)
+    
+    def forward(self, x):
+        x = self.ghost(x)
+        return self.ca(x)
+    
+
+class MultiScaleDW(nn.Module):
+    def __init__(self, c):
+        super().__init__()
+        self.dw3 = nn.Conv2d(c, c, 3, 1, 1, groups=c)
+        self.dw5 = nn.Conv2d(c, c, 5, 1, 2, groups=c)
+        self.dw7 = nn.Conv2d(c, c, 7, 1, 3, groups=c)
+        
+    def forward(self, x):
+        return torch.cat([
+            self.dw3(x),
+            self.dw5(x),
+            self.dw7(x)
+        ], dim=1)
+
+
+class SCDGhostBlock(nn.Module):
+    def __init__(self, c1, c2):
+        super().__init__()
+        c_ = c2 // 2
+        
+        self.ghost = DynamicGhostConv(c1, c_)
+        self.spatial = MultiScaleDW(c_)
+        self.fuse = nn.Conv2d(c_ * 3, c2, 1)
+        self.attn = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(c2, c2 // 4, 1),
+            nn.ReLU(),
+            nn.Conv2d(c2 // 4, c2, 1),
+            nn.Sigmoid()
+        )
+    
+    def forward(self, x):
+        x = self.ghost(x)
+        x = self.spatial(x)
+        x = self.fuse(x)
+        return x * self.attn(x)
+    
+
+class RecalibratedGhost(nn.Module):
+    def __init__(self, c1, c2):
+        super().__init__()
+        self.ghost = DynamicGhostConv(c1, c2)
+        
+        self.recalib = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(c2, c2 // 4, 1),
+            nn.GELU(),
+            nn.Conv2d(c2 // 4, c2, 1),
+            nn.Sigmoid()
+        )
+    
+    def forward(self, x):
+        feat = self.ghost(x)
+        weight = self.recalib(feat)
+        return feat * weight
+    
+    
 class RepConv(nn.Module):
     """RepConv module with training and deploy modes.
 
