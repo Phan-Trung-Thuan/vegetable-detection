@@ -367,15 +367,14 @@ class ECALayer(nn.Module):
     
 
 class GhostConvMS(nn.Module):
-
     def __init__(self, c1, c2, k=1, s=1, g=1, act=True):
         super().__init__()
         c_ = c2 // 2
 
         self.cv1 = Conv(c1, c_, k, s, None, g, act=act)
 
-        self.dw3 = Conv(c_, c_ // 2, 3, 1, None, c_, act=act)
-        self.dw5 = Conv(c_, c_ // 2, 5, 1, None, c_, act=act)
+        self.dw3 = Conv(c_, c_ // 2, 3, 1, None, c_ // 2, act=act)
+        self.dw5 = Conv(c_, c_ // 2, 5, 1, None, c_ // 2, act=act)
 
         self.eca = ECALayer(k_size=3)
 
