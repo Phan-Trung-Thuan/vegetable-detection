@@ -38,6 +38,7 @@ __all__ = (
     "C2fPSA",
     "C3Ghost",
     "C3GhostV2",
+    "CoordinateAttention",
     "C3k2",
     "C3x",
     "CBFuse",
@@ -951,6 +952,58 @@ class C3TR(C3):
         c_ = int(c2 * e)
         self.m = TransformerBlock(c_, c_, 4, n)
 
+
+class CoordinateAttention(nn.Module):
+    """
+    Coordinate Attention Module
+    Paper: Coordinate Attention for Efficient Mobile Network Design (CVPR 2021)
+    """
+
+    def __init__(self, inp, reduction=32):
+        super().__init__()
+        self.pool_h = nn.AdaptiveAvgPool2d((None, 1))  # keep H
+        self.pool_w = nn.AdaptiveAvgPool2d((1, None))  # keep W
+
+        mip = max(8, inp // reduction)
+
+        self.conv1 = nn.Conv2d(inp, mip, kernel_size=1, stride=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(mip)
+        self.act = nn.SiLU(inplace=True)
+
+        self.conv_h = nn.Conv2d(mip, inp, kernel_size=1, stride=1, bias=False)
+        self.conv_w = nn.Conv2d(mip, inp, kernel_size=1, stride=1, bias=False)
+
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        identity = x
+        b, c, h, w = x.size()
+
+        # Coordinate pooling
+        x_h = self.pool_h(x)            # (B, C, H, 1)
+        x_w = self.pool_w(x).permute(0, 1, 3, 2)  # (B, C, W, 1)
+
+        # Concatenate along spatial dimension
+        y = torch.cat([x_h, x_w], dim=2)  # (B, C, H+W, 1)
+
+        # Shared transform
+        y = self.conv1(y)
+        y = self.bn1(y)
+        y = self.act(y)
+
+        # Split
+        x_h, x_w = torch.split(y, [h, w], dim=2)
+        x_w = x_w.permute(0, 1, 3, 2)
+
+        # Generate attention maps
+        a_h = self.sigmoid(self.conv_h(x_h))
+        a_w = self.sigmoid(self.conv_w(x_w))
+
+        # Apply attention
+        out = identity * a_h * a_w
+
+        return out
+    
 
 class C3Ghost(C3):
     """C3 module with GhostBottleneck()."""
