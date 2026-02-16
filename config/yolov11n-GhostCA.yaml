@@ -8,7 +8,7 @@ scales:
 # =========================
 backbone:
   - [-1, 1, Conv, [64, 3, 2]] 
-  - [-1, 1, Conv, [128, 3, 2]]
+  - [-1, 1, GhostConvSR, [128, 3, 2]]
   - [-1, 1, GhostConvSR, [256, 3, 2]] 
   - [-1, 6, C3GhostV2, [256, True]]
   - [-1, 1, GhostConvSR, [512, 3, 2]] 
