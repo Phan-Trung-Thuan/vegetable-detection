@@ -145,6 +145,7 @@ __all__ = (
     "C2fCIB",
     "C2fPSA",
     "C3Ghost",
+    "C3GhostV2",
     "C3k2",
     "C3x",
     "CBFuse",
