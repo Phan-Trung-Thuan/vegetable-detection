@@ -38,6 +38,7 @@ from ultralytics.nn.modules import (
     # ========================
     C3Ghost,
     C3GhostV2,
+    GhostC2f,
     CoordinateAttention,
     SPPFCA,
     SE,
@@ -1601,6 +1602,7 @@ def parse_model(d, ch, verbose=True):
             SPPFCA,
             C3Ghost,
             C3GhostV2,
+            GhostC2f,
             CoordinateAttention,
             # ============
             torch.nn.ConvTranspose2d,
@@ -1628,6 +1630,7 @@ def parse_model(d, ch, verbose=True):
             C3TR,
             C3Ghost,
             C3GhostV2,
+            GhostC2f,
             CoordinateAttention,
             C3x,
             RepC3,

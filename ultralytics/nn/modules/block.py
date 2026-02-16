@@ -39,6 +39,9 @@ __all__ = (
     # =========================
     "C3Ghost",
     "C3GhostV2",
+    "GhostC2f",
+    "GhostBottleneck",
+    "GhostBottleneckV2",
     "CoordinateAttention",
     "SE",
     "ECA",
@@ -49,7 +52,6 @@ __all__ = (
     "CBFuse",
     "CBLinear",
     "ContrastiveHead",
-    "GhostBottleneck",
     "HGBlock",
     "HGStem",
     "ImagePoolingAttn",
@@ -1028,7 +1030,6 @@ class CoordinateAttention(nn.Module):
 class SE(nn.Module):
     """
     Squeeze-and-Excitation Block
-    Paper: Squeeze-and-Excitation Networks (CVPR 2018)
     """
 
     def __init__(self, channels, reduction=16):
@@ -1053,7 +1054,6 @@ class SE(nn.Module):
 class ECA(nn.Module):
     """
     Efficient Channel Attention
-    Paper: ECA-Net (CVPR 2020)
     """
 
     def __init__(self, channels, gamma=2, b=1):
@@ -1114,6 +1114,26 @@ class C3GhostV2(C3):
         c_ = int(c2 * e)  # hidden channels
         self.m = nn.Sequential(*(GhostBottleneckV2(c_, c_) for _ in range(n)))
 
+
+class GhostC2f(nn.Module):
+    def __init__(self, c1, c2, n=2, e=0.5):
+        super().__init__()
+        c_ = int(c2 * e)
+
+        self.cv1 = GhostConv(c1, 2 * c_, 1, 1)
+        self.m = nn.ModuleList(
+            GhostBottleneck(c_, c_) for _ in range(n)
+        )
+        self.cv2 = GhostConv((2 + n) * c_, c2, 1)
+
+        self.eca = ECA(c2)
+
+    def forward(self, x):
+        y = list(self.cv1(x).chunk(2, 1))
+        for m in self.m:
+            y.append(m(y[-1]))
+        return self.eca(self.cv2(torch.cat(y, 1)))
+    
 
 class GhostBottleneck(nn.Module):
     """Ghost Bottleneck https://github.com/huawei-noah/Efficient-AI-Backbones."""

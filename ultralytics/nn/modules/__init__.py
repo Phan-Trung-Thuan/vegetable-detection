@@ -155,6 +155,7 @@ __all__ = (
     "ECA",
     "C3Ghost",
     "C3GhostV2",
+    "GhostC2f",
     "GhostBottleneck",
     "GhostBottleneckV2",
     "CoordinateAttention",
