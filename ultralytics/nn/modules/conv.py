@@ -416,8 +416,6 @@ class CoordinateAttention(nn.Module):
         
         a_h = self.conv_h(x_h).sigmoid()
         a_w = self.conv_w(x_w).sigmoid()
-        print(x.shape)
-        print((identity * a_h * a_w).shape)
         
         return identity * a_h * a_w
 
