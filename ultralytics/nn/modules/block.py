@@ -26,7 +26,6 @@ __all__ = (
     "SPP",
     "SPPELAN",
     "SPPF",
-    "SPPFCA",
     "AConv",
     "ADown",
     "Attention",
@@ -37,9 +36,14 @@ __all__ = (
     "C2fAttn",
     "C2fCIB",
     "C2fPSA",
+    # =========================
     "C3Ghost",
     "C3GhostV2",
     "CoordinateAttention",
+    "SE",
+    "ECA",
+    "SPPFCA",
+    # =========================
     "C3k2",
     "C3x",
     "CBFuse",
@@ -1019,6 +1023,70 @@ class CoordinateAttention(nn.Module):
         a_w = self.sigmoid(self.conv_w(x_w))
 
         return identity * a_h * a_w
+    
+
+class SE(nn.Module):
+    """
+    Squeeze-and-Excitation Block
+    Paper: Squeeze-and-Excitation Networks (CVPR 2018)
+    """
+
+    def __init__(self, channels, reduction=16):
+        super().__init__()
+        hidden = max(8, channels // reduction)
+
+        self.pool = nn.AdaptiveAvgPool2d(1)
+
+        self.fc = nn.Sequential(
+            nn.Conv2d(channels, hidden, 1, bias=False),
+            nn.SiLU(inplace=True),
+            nn.Conv2d(hidden, channels, 1, bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        w = self.pool(x)
+        w = self.fc(w)
+        return x * w
+
+
+class ECA(nn.Module):
+    """
+    Efficient Channel Attention
+    Paper: ECA-Net (CVPR 2020)
+    """
+
+    def __init__(self, channels, gamma=2, b=1):
+        super().__init__()
+
+        # dynamic kernel size
+        t = int(abs((math.log2(channels) + b) / gamma))
+        k = t if t % 2 else t + 1
+
+        self.pool = nn.AdaptiveAvgPool2d(1)
+
+        self.conv = nn.Conv1d(
+            1,
+            1,
+            kernel_size=k,
+            padding=(k - 1) // 2,
+            bias=False
+        )
+
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        b, c, h, w = x.size()
+
+        y = self.pool(x)                  # (B,C,1,1)
+        y = y.squeeze(-1).transpose(-1, -2)  # (B,1,C)
+
+        y = self.conv(y)
+        y = self.sigmoid(y)
+
+        y = y.transpose(-1, -2).unsqueeze(-1)  # (B,C,1,1)
+
+        return x * y.expand_as(x)
     
 
 class C3Ghost(C3):
