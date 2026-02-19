@@ -5,7 +5,6 @@ scales:
 # YOLO11n backbone
 backbone:
   # [from, repeats, module, args]
-  # [from, repeats, module, args]
   - [-1, 1, Conv, [64, 3, 2]] # 0-P1/2
   - [-1, 1, GhostConv, [128, 3, 2]] # 1-P2/4
   - [-1, 2, C3Ghost, [256, False, 0.25]]
