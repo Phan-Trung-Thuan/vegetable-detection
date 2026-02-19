@@ -8,6 +8,8 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
 
 __all__ = (
     "CBAM",
@@ -20,6 +22,7 @@ __all__ = (
     "DWConvTranspose2d",
     "Focus",
     "GhostConv",
+    "AdaptiveSpectralGhost",
     "SpectralECA",
     "GhostConvSR",
     "Index",
@@ -354,6 +357,58 @@ class GhostConv(nn.Module):
         y = self.cv1(x)
         return torch.cat((y, self.cv2(y)), 1)
 
+
+# --------------------------------------------------
+# Adaptive Spectral Ghost Module
+# --------------------------------------------------
+class AdaptiveSpectralGhost(nn.Module):
+    def __init__(self, c1, c2, k=3, s=1, ratio=2, reduction=16):
+        super().__init__()
+
+        # Low-frequency extractor (blur pooling)
+        self.blur = nn.AvgPool2d(kernel_size=3, stride=1, padding=1)
+
+        # Ghost branch for low-frequency
+        self.ghost = GhostConv(c1, c2, k, s, ratio)
+
+        # Real conv branch for high-frequency
+        self.high_conv = Conv(c1, c2, k, s)
+
+        # Dynamic gating
+        self.gap = nn.AdaptiveAvgPool2d(1)
+        self.fc1 = nn.Conv2d(c1, c1 // reduction, 1)
+        self.fc2 = nn.Conv2d(c1 // reduction, 1, 1)
+
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+
+        # -----------------------------
+        # Spectral decomposition
+        # -----------------------------
+        x_low = self.blur(x)
+        x_high = x - x_low
+
+        # -----------------------------
+        # Two branches
+        # -----------------------------
+        y_low = self.ghost(x_low)
+        y_high = self.high_conv(x_high)
+
+        # -----------------------------
+        # Dynamic ratio
+        # -----------------------------
+        r = self.gap(x)
+        r = F.relu(self.fc1(r))
+        r = self.sigmoid(self.fc2(r))
+
+        # -----------------------------
+        # Adaptive fusion
+        # -----------------------------
+        y = r * y_high + (1 - r) * y_low
+
+        return y
+    
 
 class SpectralECA(nn.Module):
     def __init__(self, k_size=3):

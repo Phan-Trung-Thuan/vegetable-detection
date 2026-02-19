@@ -84,6 +84,7 @@ from .conv import (
     DWConvTranspose2d,
     Focus,
     GhostConv,
+    AdaptiveSpectralGhost,
     GhostConvSR,
     Index,
     LightConv,
@@ -161,6 +162,7 @@ __all__ = (
     "GhostBottleneckV2",
     "CoordinateAttention",
     "GhostConv",
+    "AdaptiveSpectralGhost",
     "GhostConvSR",
     # =========================
     "C3k2",
