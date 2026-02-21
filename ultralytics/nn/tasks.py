@@ -47,6 +47,7 @@ from ultralytics.nn.modules import (
     GhostBottleneckV2,
     GhostConv,
     GhostConvSR,
+    AdaptiveSpectralGhost,
     # ========================
     C3k2,
     C3x,
@@ -1632,6 +1633,7 @@ def parse_model(d, ch, verbose=True):
             C3GhostV2,
             GhostC2f,
             CoordinateAttention,
+            AdaptiveSpectralGhost,
             C3x,
             RepC3,
             C2fPSA,

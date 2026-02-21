@@ -917,6 +917,7 @@ class C2(nn.Module):
         a, b = self.cv1(x).chunk(2, 1)
         return self.cv2(torch.cat((self.m(a), b), 1))
 
+
 class C3x(C3):
     """C3 module with cross-convolutions."""
 
