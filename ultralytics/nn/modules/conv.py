@@ -369,7 +369,6 @@ class AdaptiveSpectralGhost(nn.Module):
         self.blur = nn.AvgPool2d(kernel_size=3, stride=1, padding=1)
 
         # Ghost branch for low-frequency
-        print(c1, c2, k, s, ratio)
         self.ghost = GhostConv(c1, c2, k, s, ratio)
 
         # Real conv branch for high-frequency
