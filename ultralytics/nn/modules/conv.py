@@ -342,7 +342,6 @@ class GhostConv(nn.Module):
         """
         super().__init__()
         c_ = c2 // 2  # hidden channels
-        print(c1, c2, c_, k, s, g, act)
         self.cv1 = Conv(c1, c_, k, s, None, g, act=act)
         self.cv2 = Conv(c_, c_, 5, 1, None, c_, act=act)
 
@@ -370,6 +369,7 @@ class AdaptiveSpectralGhost(nn.Module):
         self.blur = nn.AvgPool2d(kernel_size=3, stride=1, padding=1)
 
         # Ghost branch for low-frequency
+        print(c1, c2, k, s, ratio)
         self.ghost = GhostConv(c1, c2, k, s, ratio)
 
         # Real conv branch for high-frequency
