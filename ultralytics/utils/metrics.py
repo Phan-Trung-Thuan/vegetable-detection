@@ -545,7 +545,7 @@ class ConfusionMatrix(DataExportMixin):
                             f"{val:.2f}" if normalize else f"{int(val)}",
                             ha="center",
                             va="center",
-                            fontsize=6,
+                            fontsize=7,
                             color="white" if val > color_threshold else "black",
                         )
             cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.05)
