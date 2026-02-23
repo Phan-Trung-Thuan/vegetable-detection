@@ -524,7 +524,7 @@ class ConfusionMatrix(DataExportMixin):
         nc = nn = n if self.task == "classify" else n + 1  # adjust for background if needed
         ticklabels = ([*names, "background"]) if (0 < nn < 99) and (nn == nc) else "auto"
         xy_ticks = np.arange(len(ticklabels))
-        tick_fontsize = max(6, 15 - 0.1 * nc)  # Minimum size is 6
+        tick_fontsize = max(4, 15 - 0.1 * nc)  # Minimum size is 6
         label_fontsize = max(6, 12 - 0.1 * nc)
         title_fontsize = max(6, 12 - 0.1 * nc)
         btm = max(0.1, 0.25 - 0.001 * nc)  # Minimum value is 0.1
