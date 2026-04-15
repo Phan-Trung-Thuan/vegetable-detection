@@ -93,7 +93,7 @@ results[0].show()
 
 ## Dataset: VnVeggie
 
-The **VnVeggie** dataset is a multi-level vegetable detection benchmark designed to evaluate model performance under increasing levels of difficulty. It contains **26 unique Vietnamese vegetable classes** organized into three progressive sub-datasets.
+The **VnVeggie** dataset is a multi-level vegetable detection benchmark designed to evaluate model performance under increasing levels of difficulty. It contains **26 unique Vietnamese vegetable classes** organized into three progressive sub-datasets. The ataset is self-collect and self-annotate but currently **private**, we will public as soon as possiple.
 
 ### **Dataset Composition**
 
