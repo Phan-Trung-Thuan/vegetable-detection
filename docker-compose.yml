@@ -1,0 +1,175 @@
+# Docker Compose Configuration for Vegetable Detection
+# Orchestrates multiple services for different deployment scenarios
+# 
+# Usage:
+#   docker-compose up -d          # Start all services
+#   docker-compose down           # Stop all services
+#   docker-compose logs -f        # View logs
+#   docker-compose ps             # List running containers
+
+version: '3.8'
+
+services:
+  # GPU Inference Service
+  gpu-inference:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: veggie-detection:gpu
+    container_name: veggie-gpu
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./data:/data                    # Input images/videos
+      - ./weights:/workspace/weights    # Model weights
+      - ./runs:/workspace/runs          # Output predictions
+    ports:
+      - "8000:8000"                    # API port (if using server)
+    command: detect predict model=yolov11s.pt source=/data save=True
+    # Comment above command and use for training:
+    # command: detect train model=yolov11s.yaml data=/data/data.yaml epochs=100 batch=32 device=0
+    healthcheck:
+      test: ["CMD", "python", "-c", "import torch; print(torch.cuda.is_available())"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - veggie-network
+    restart: unless-stopped
+
+  # CPU Inference Service (lightweight)
+  cpu-inference:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile-cpu
+    image: veggie-detection:cpu
+    container_name: veggie-cpu
+    environment:
+      - PYTHONUNBUFFERED=1
+      - OMP_NUM_THREADS=4
+    volumes:
+      - ./data:/data
+      - ./weights:/workspace/weights
+      - ./runs:/workspace/runs
+    command: detect predict model=yolov11s.pt source=/data save=True
+    healthcheck:
+      test: ["CMD", "python", "-c", "import torch; print('OK')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - veggie-network
+    restart: unless-stopped
+    # Uncomment to limit resources
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '4'
+    #       memory: 8G
+
+  # Jupyter Development Environment
+  jupyter:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile-jupyter
+    image: veggie-detection:jupyter
+    container_name: veggie-jupyter
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - JUPYTER_ENABLE_LAB=yes
+    volumes:
+      - ./data:/data
+      - ./notebooks:/workspace/notebooks
+      - ./weights:/workspace/weights
+      - ./runs:/workspace/runs
+      - ./train:/workspace/train
+    ports:
+      - "8888:8888"
+    command: jupyter lab --ip=0.0.0.0 --allow-root --no-browser
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/api"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - veggie-network
+    restart: unless-stopped
+
+  # Model Export Service
+  export:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile-export
+    image: veggie-detection:export
+    container_name: veggie-export
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    volumes:
+      - ./weights:/weights             # Input models
+      - ./weights/exported:/output     # Exported models
+    command: echo "Ready for export. Run manual export commands."
+    networks:
+      - veggie-network
+
+  # Optional: PostgreSQL for tracking experiments (if using MLflow)
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: veggie-postgres
+  #   environment:
+  #     POSTGRES_USER: veggie
+  #     POSTGRES_PASSWORD: veggie-pass
+  #     POSTGRES_DB: veggie-tracking
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   networks:
+  #     - veggie-network
+  #   restart: unless-stopped
+
+  # Optional: MLflow for experiment tracking
+  # mlflow:
+  #   image: ghcr.io/mlflow/mlflow:latest
+  #   container_name: veggie-mlflow
+  #   environment:
+  #     - BACKEND_STORE_URI=postgresql://veggie:veggie-pass@postgres:5432/veggie-tracking
+  #     - ARTIFACT_ROOT=/mlflow/artifacts
+  #   volumes:
+  #     - mlflow-data:/mlflow/artifacts
+  #   ports:
+  #     - "5000:5000"
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - veggie-network
+  #   restart: unless-stopped
+
+networks:
+  veggie-network:
+    driver: bridge
+
+volumes:
+  # postgres-data:
+  # mlflow-data:
+
+# Important Notes:
+# 1. Ensure nvidia-docker or Docker with GPU support is installed
+# 2. Edit service commands based on your use case (inference/training/export)
+# 3. Volume paths are relative - adjust based on your setup
+# 4. Port mappings may conflict - change if ports are already in use
+# 5. Resource limits can be set in 'deploy' section for production
+# 
+# Example: Start only GPU inference service
+#   docker-compose up -d gpu-inference
+#
+# Example: Start Jupyter for development
+#   docker-compose up -d jupyter
+#   # Access at http://localhost:8888
+#
+# Example: Run export service
+#   docker-compose run --rm export yolo detect export model=/weights/best.pt format=onnx,engine
